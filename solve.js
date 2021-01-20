@@ -22,7 +22,7 @@ class Elevator {
     this.calls.push(call);
   }
 
-  updateAction() {
+  async updateAction() {
     if (!this.isStarted && this.src !== this.dest) {
       if (this.floor < this.src) {
         this.status = `UPWARD`;
@@ -42,7 +42,7 @@ class Elevator {
     const enter = [];
     const exit = [];
 
-    for (call of this.calls.call) {
+    for (call of this.calls) {
       if (call.start === this.floor) {
         enter.push(call);
       }
@@ -70,36 +70,41 @@ class Elevator {
       return `OPEN`;
     } else if (this.status === `OPENED` && enter.length > 0) {
       // 탈 사람이 있다면
-      let dic = {};
+      let callId = [];
       this.passengers.push([...enter]);
+      console.log(enter);
       for (enterCall of enter) {
-        const idx = this.calls.findIndx(function (item) {
+        const idx = this.calls.findIndex(function (item) {
+          console.log(item);
           return item === enterCall;
         });
         if (idx > -1) {
           this.calls.splice(idx, 1);
         }
       }
+
+      callId.push("enter");
       for (enterCall of enter) {
-        dic[`ENTER`] = enterCall.id;
+        callId.push(enterCall.id);
       }
-      return dic;
+      return callId;
     } else if (this.status == `OPENED` && exit.length > 0) {
       // 내릴 사람이 있다면
-      let dic = {};
+      let callId = [];
       this.passengers.push([...exit]);
       for (exitCall of exit) {
-        const idx = this.calls.findIndx(function (item) {
+        const idx = this.calls.findIndex(function (item) {
           return item === exitCall;
         });
         if (idx > -1) {
           this.calls.splice(idx, 1);
         }
       }
+      callId.push("exit");
       for (exitCall of exit) {
-        dic[`EXIT`] = enterCall.id;
+        callId.push(enterCall.id);
       }
-      return dic;
+      return callId;
     } else if (
       this.status === `OPENED` &&
       !(enter.length > 0 || exit.length > 0)
@@ -149,7 +154,7 @@ async function action(token, command) {
     url: `${URL}/action`,
     method: `POST`,
     headers: { "X-Auth-Token": token, "Content-Type": `application/json` },
-    data: { commands: command },
+    commands: command,
   });
 }
 
@@ -192,12 +197,80 @@ async function solve() {
             }
           }
           for (call of ascendCall) {
+            if (jobs < 8) {
+              elevator.addCall(call);
+              progress.push(call);
+              const idx = notProgress.findIndex(function (item) {
+                return item === call;
+              });
+              if (idx > -1) {
+                notProgress.splice(idx, 1);
+              }
+              jobs++;
+            } else {
+              break;
+            }
+          }
+        } else if (elevator.isStarted && elevator.src > elevator.dest) {
+          let descendCall = [];
+          for (call of notProgress) {
+            if (
+              elevator.floor > call.start &&
+              call.start > call.end &&
+              call.end > elevator.dest
+            ) {
+              descendCall.push(call);
+            }
+          }
+          for (call of descendCall) {
+            if (jobs < 8) {
+              elevator.addCall(call);
+              progress.push(call);
+              const idx = notProgress.findIndex(function (item) {
+                return item === call;
+              });
+              if (idx > -1) {
+                notProgress.splice(idx, 1);
+              }
+              jobs++;
+            } else {
+              break;
+            }
           }
         }
       }
+
+      elevator_action = await elevator.updateAction();
+      if (typeof elevator_action === "object") {
+        if (elevator_action[0] === "enter") {
+          elevator_action.splice(0, 1);
+          for (callId of elevator_action) {
+            commands.push({
+              elevator_id: elevator.id,
+              command: "ENTER",
+              call_ids: callId,
+            });
+          }
+        } else if (elevator_action[0] === "exit") {
+          elevator_action.splice(0, 1);
+          for (callId of elevator_action) {
+            commands.push({
+              elevator_id: elevator.id,
+              command: "EXIT",
+              call_ids: callId,
+            });
+          }
+        }
+      } else {
+        commands.push({ elevator_id: elevator.id, command: elevator_action });
+      }
     }
 
-    break;
+    try {
+      await action(token, commands);
+    } catch (error) {
+      // console.log(error);
+    }
   }
 }
 
