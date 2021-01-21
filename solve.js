@@ -39,16 +39,16 @@ class Elevator {
       }
     }
 
-    const enter = [];
-    const exit = [];
+    let enter = [];
+    let exit = [];
 
-    for (call of this.calls) {
+    for (let call of this.calls) {
       if (call.start === this.floor) {
         enter.push(call);
       }
     }
 
-    for (call of this.passengers) {
+    for (let call of this.passengers) {
       if (call.end === this.floor) {
         exit.push(call);
       }
@@ -71,11 +71,11 @@ class Elevator {
     } else if (this.status === `OPENED` && enter.length > 0) {
       // 탈 사람이 있다면
       let callId = [];
-      this.passengers.push([...enter]);
-      console.log(enter);
-      for (enterCall of enter) {
+      this.passengers = [];
+      this.passengers.push(...enter);
+
+      for (let enterCall of enter) {
         const idx = this.calls.findIndex(function (item) {
-          console.log(item);
           return item === enterCall;
         });
         if (idx > -1) {
@@ -84,15 +84,16 @@ class Elevator {
       }
 
       callId.push("enter");
-      for (enterCall of enter) {
+      for (let enterCall of enter) {
         callId.push(enterCall.id);
       }
       return callId;
     } else if (this.status == `OPENED` && exit.length > 0) {
       // 내릴 사람이 있다면
       let callId = [];
-      this.passengers.push([...exit]);
-      for (exitCall of exit) {
+      this.passengers = [];
+      this.passengers.push(...exit);
+      for (let exitCall of exit) {
         const idx = this.calls.findIndex(function (item) {
           return item === exitCall;
         });
@@ -101,8 +102,8 @@ class Elevator {
         }
       }
       callId.push("exit");
-      for (exitCall of exit) {
-        callId.push(enterCall.id);
+      for (let exitCall of exit) {
+        callId.push(exitCall.id);
       }
       return callId;
     } else if (
@@ -122,7 +123,7 @@ class Elevator {
     } else {
       // 엘리베이터 이동 중
       console.log(
-        `Elevator: ${this.src} -> ${this.dest}, 현재 ${this.floor}, ${this.status}`
+        `Elevator ${this.id}: ${this.src}층 -> ${this.dest}층, 현재 ${this.floor}층, ${this.status}`
       );
       if (this.src < this.dest) {
         this.status = `UPWARD`;
@@ -131,7 +132,7 @@ class Elevator {
       } else {
         this.status = `DOWNWARD`;
         this.floor -= 1;
-        retrun`DOWN`;
+        return `DOWN`;
       }
     }
   }
@@ -153,9 +154,15 @@ async function action(token, command) {
   return await axios({
     url: `${URL}/action`,
     method: `POST`,
-    headers: { "X-Auth-Token": token, "Content-Type": `application/json` },
-    commands: command,
+    headers: { "X-Auth-Token": token, "Content-Type": "application/json" },
+    data: { commands: command },
   });
+}
+
+async function sleep() {
+  const _sleep = (delay) =>
+    new Promise((resolve) => setTimeout(resolve, delay));
+  await _sleep(25);
 }
 
 async function solve() {
@@ -163,11 +170,12 @@ async function solve() {
   let token = setting.data.token;
   let elevators = [];
   let progress = [];
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 0; i < 4; i++) {
     let elevator = new Elevator(i);
     elevators.push(elevator);
   }
   while (true) {
+    await sleep();
     const result = await onCalls(token);
     if (result.data.is_end) {
       break;
@@ -178,7 +186,7 @@ async function solve() {
       const already = [...progress];
       return item !== already;
     });
-    for (elevator of elevators) {
+    for (let elevator of elevators) {
       let jobs = elevator.passengers.length + elevator.calls.length;
       if (jobs < 8 && notProgress.length > 0) {
         if (elevator.src === elevator.dest) {
@@ -187,7 +195,7 @@ async function solve() {
           notProgress.splice(0, 1);
         } else if (elevator.isStarted && elevator.src < elevator.dest) {
           let ascendCall = [];
-          for (call of notProgress) {
+          for (let call of notProgress) {
             if (
               elevator.floor < call.start &&
               call.start < call.end &&
@@ -196,7 +204,7 @@ async function solve() {
               ascendCall.push(call);
             }
           }
-          for (call of ascendCall) {
+          for (let call of ascendCall) {
             if (jobs < 8) {
               elevator.addCall(call);
               progress.push(call);
@@ -213,7 +221,7 @@ async function solve() {
           }
         } else if (elevator.isStarted && elevator.src > elevator.dest) {
           let descendCall = [];
-          for (call of notProgress) {
+          for (let call of notProgress) {
             if (
               elevator.floor > call.start &&
               call.start > call.end &&
@@ -222,7 +230,7 @@ async function solve() {
               descendCall.push(call);
             }
           }
-          for (call of descendCall) {
+          for (let call of descendCall) {
             if (jobs < 8) {
               elevator.addCall(call);
               progress.push(call);
@@ -240,11 +248,11 @@ async function solve() {
         }
       }
 
-      elevator_action = await elevator.updateAction();
+      const elevator_action = await elevator.updateAction();
       if (typeof elevator_action === "object") {
         if (elevator_action[0] === "enter") {
           elevator_action.splice(0, 1);
-          for (callId of elevator_action) {
+          for (let callId of elevator_action) {
             commands.push({
               elevator_id: elevator.id,
               command: "ENTER",
@@ -253,7 +261,7 @@ async function solve() {
           }
         } else if (elevator_action[0] === "exit") {
           elevator_action.splice(0, 1);
-          for (callId of elevator_action) {
+          for (let callId of elevator_action) {
             commands.push({
               elevator_id: elevator.id,
               command: "EXIT",
@@ -265,11 +273,12 @@ async function solve() {
         commands.push({ elevator_id: elevator.id, command: elevator_action });
       }
     }
-
     try {
+      console.log(commands);
       await action(token, commands);
     } catch (error) {
       // console.log(error);
+      return;
     }
   }
 }
