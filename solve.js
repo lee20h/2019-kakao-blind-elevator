@@ -53,7 +53,6 @@ class Elevator {
         exit.push(call);
       }
     }
-
     if (
       // 승객이 원하는 층 도착
       (this.status === `UPWARD` || this.status === `DOWNWARD`) &&
@@ -76,10 +75,14 @@ class Elevator {
 
       for (let enterCall of enter) {
         const idx = this.calls.findIndex(function (item) {
-          return item === enterCall;
+          return item.id === enterCall.id;
         });
         if (idx > -1) {
-          this.calls.splice(idx, 1);
+          if (this.calls.length === 1) {
+            this.calls = [];
+          } else {
+            this.calls.splice(idx, 1);
+          }
         }
       }
 
@@ -95,10 +98,14 @@ class Elevator {
       this.passengers.push(...exit);
       for (let exitCall of exit) {
         const idx = this.calls.findIndex(function (item) {
-          return item === exitCall;
+          return item.id === exitCall.id;
         });
         if (idx > -1) {
-          this.calls.splice(idx, 1);
+          if (this.calls.length === 1) {
+            this.calls = [];
+          } else {
+            this.calls.splice(idx, 1);
+          }
         }
       }
       callId.push("exit");
@@ -139,7 +146,7 @@ class Elevator {
 }
 
 async function startApi(problem) {
-  return await axios.post(`${URL}/start/tester/${problem}/4`);
+  return await axios.post(`${URL}/start/tester/${problem}/1`);
 }
 
 async function onCalls(token) {
@@ -170,7 +177,7 @@ async function solve() {
   let token = setting.data.token;
   let elevators = [];
   let progress = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 1; i++) {
     let elevator = new Elevator(i);
     elevators.push(elevator);
   }
@@ -183,8 +190,11 @@ async function solve() {
     let commands = [];
     let notProgress = [];
     notProgress = result.data.calls.filter(function (item) {
-      const already = [...progress];
-      return item !== already;
+      let flag = true;
+      for (let already of progress) {
+        if (already.id === item.id) flag = false;
+      }
+      return flag;
     });
     for (let elevator of elevators) {
       let jobs = elevator.passengers.length + elevator.calls.length;
@@ -192,7 +202,11 @@ async function solve() {
         if (elevator.src === elevator.dest) {
           elevator.addCall(notProgress[0]);
           progress.push(notProgress[0]);
-          notProgress.splice(0, 1);
+          if (notProgress.length === 1) {
+            notProgress = [];
+          } else {
+            notProgress = notProgress.splice(-1, 1);
+          }
         } else if (elevator.isStarted && elevator.src < elevator.dest) {
           let ascendCall = [];
           for (let call of notProgress) {
@@ -209,10 +223,14 @@ async function solve() {
               elevator.addCall(call);
               progress.push(call);
               const idx = notProgress.findIndex(function (item) {
-                return item === call;
+                return item.id === call.id;
               });
               if (idx > -1) {
-                notProgress.splice(idx, 1);
+                if (notProgress.length === 1) {
+                  notProgress = [];
+                } else {
+                  notProgress = notProgress.splice(-1, 1);
+                }
               }
               jobs++;
             } else {
@@ -235,10 +253,14 @@ async function solve() {
               elevator.addCall(call);
               progress.push(call);
               const idx = notProgress.findIndex(function (item) {
-                return item === call;
+                return item.id === call.id;
               });
               if (idx > -1) {
-                notProgress.splice(idx, 1);
+                if (notProgress.length === 1) {
+                  notProgress = [];
+                } else {
+                  notProgress = notProgress.splice(-1, 1);
+                }
               }
               jobs++;
             } else {
@@ -249,6 +271,7 @@ async function solve() {
       }
 
       const elevator_action = await elevator.updateAction();
+
       if (typeof elevator_action === "object") {
         if (elevator_action[0] === "enter") {
           elevator_action.splice(0, 1);
