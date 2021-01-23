@@ -70,7 +70,6 @@ class Elevator {
     } else if (this.status === `OPENED` && enter.length > 0) {
       // 탈 사람이 있다면
       let callId = [];
-      this.passengers = [];
       this.passengers.push(...enter);
 
       for (let enterCall of enter) {
@@ -94,8 +93,18 @@ class Elevator {
     } else if (this.status == `OPENED` && exit.length > 0) {
       // 내릴 사람이 있다면
       let callId = [];
-      this.passengers = [];
-      this.passengers.push(...exit);
+      for (let exitId of exit) {
+        const idx = this.passengers.findIndex(function (item) {
+          return item.id === exitId.id;
+        });
+        if (idx > -1) {
+          if (this.passengers.length === 1) {
+            this.passengers = [];
+          } else {
+            this.passengers.splice(idx, 1);
+          }
+        }
+      }
       for (let exitCall of exit) {
         const idx = this.calls.findIndex(function (item) {
           return item.id === exitCall.id;
@@ -129,9 +138,6 @@ class Elevator {
       return `STOP`;
     } else {
       // 엘리베이터 이동 중
-      console.log(
-        `Elevator ${this.id}: ${this.src}층 -> ${this.dest}층, 현재 ${this.floor}층, ${this.status}`
-      );
       if (this.src < this.dest) {
         this.status = `UPWARD`;
         this.floor += 1;
@@ -146,7 +152,7 @@ class Elevator {
 }
 
 async function startApi(problem) {
-  return await axios.post(`${URL}/start/tester/${problem}/1`);
+  return await axios.post(`${URL}/start/tester/${problem}/4`);
 }
 
 async function onCalls(token) {
@@ -173,11 +179,11 @@ async function sleep() {
 }
 
 async function solve() {
-  const setting = await startApi(0);
+  const setting = await startApi(1);
   let token = setting.data.token;
   let elevators = [];
   let progress = [];
-  for (let i = 0; i < 1; i++) {
+  for (let i = 0; i < 4; i++) {
     let elevator = new Elevator(i);
     elevators.push(elevator);
   }
@@ -185,6 +191,7 @@ async function solve() {
     await sleep();
     const result = await onCalls(token);
     if (result.data.is_end) {
+      console.log(`완료!!`);
       break;
     }
     let commands = [];
@@ -202,11 +209,7 @@ async function solve() {
         if (elevator.src === elevator.dest) {
           elevator.addCall(notProgress[0]);
           progress.push(notProgress[0]);
-          if (notProgress.length === 1) {
-            notProgress = [];
-          } else {
-            notProgress = notProgress.splice(-1, 1);
-          }
+          notProgress.shift();
         } else if (elevator.isStarted && elevator.src < elevator.dest) {
           let ascendCall = [];
           for (let call of notProgress) {
@@ -229,10 +232,9 @@ async function solve() {
                 if (notProgress.length === 1) {
                   notProgress = [];
                 } else {
-                  notProgress = notProgress.splice(-1, 1);
+                  notProgress = notProgress.splice(idx, 1);
                 }
               }
-              jobs++;
             } else {
               break;
             }
@@ -259,10 +261,9 @@ async function solve() {
                 if (notProgress.length === 1) {
                   notProgress = [];
                 } else {
-                  notProgress = notProgress.splice(-1, 1);
+                  notProgress = notProgress.splice(idx, 1);
                 }
               }
-              jobs++;
             } else {
               break;
             }
@@ -271,26 +272,27 @@ async function solve() {
       }
 
       const elevator_action = await elevator.updateAction();
-
       if (typeof elevator_action === "object") {
+        let callId = [];
+        if (elevator_action.length > 2) {
+          for (let i = 1; i < elevator_action.length; i++) {
+            callId.push(elevator_action[i]);
+          }
+        } else {
+          callId.push(elevator_action[1]);
+        }
         if (elevator_action[0] === "enter") {
-          elevator_action.splice(0, 1);
-          for (let callId of elevator_action) {
-            commands.push({
-              elevator_id: elevator.id,
-              command: "ENTER",
-              call_ids: callId,
-            });
-          }
+          commands.push({
+            elevator_id: elevator.id,
+            command: "ENTER",
+            call_ids: callId,
+          });
         } else if (elevator_action[0] === "exit") {
-          elevator_action.splice(0, 1);
-          for (let callId of elevator_action) {
-            commands.push({
-              elevator_id: elevator.id,
-              command: "EXIT",
-              call_ids: callId,
-            });
-          }
+          commands.push({
+            elevator_id: elevator.id,
+            command: "EXIT",
+            call_ids: callId,
+          });
         }
       } else {
         commands.push({ elevator_id: elevator.id, command: elevator_action });
@@ -300,7 +302,7 @@ async function solve() {
       console.log(commands);
       await action(token, commands);
     } catch (error) {
-      // console.log(error);
+      console.log(error);
       return;
     }
   }
