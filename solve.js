@@ -44,7 +44,9 @@ class Elevator {
 
     for (let call of this.calls) {
       if (call.start === this.floor) {
-        enter.push(call);
+        if (enter.length + this.passengers.length < 8) {
+          enter.push(call);
+        }
       }
     }
 
@@ -179,7 +181,7 @@ async function sleep() {
 }
 
 async function solve() {
-  const setting = await startApi(1);
+  const setting = await startApi(2);
   let token = setting.data.token;
   let elevators = [];
   let progress = [];
@@ -232,9 +234,10 @@ async function solve() {
                 if (notProgress.length === 1) {
                   notProgress = [];
                 } else {
-                  notProgress = notProgress.splice(idx, 1);
+                  notProgress.splice(idx, 1);
                 }
               }
+              jobs++;
             } else {
               break;
             }
@@ -261,9 +264,10 @@ async function solve() {
                 if (notProgress.length === 1) {
                   notProgress = [];
                 } else {
-                  notProgress = notProgress.splice(idx, 1);
+                  notProgress.splice(idx, 1);
                 }
               }
+              jobs++;
             } else {
               break;
             }
@@ -299,7 +303,6 @@ async function solve() {
       }
     }
     try {
-      console.log(commands);
       await action(token, commands);
     } catch (error) {
       console.log(error);
